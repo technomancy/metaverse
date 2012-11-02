@@ -1,19 +1,3 @@
-;; (ns clojure.core)
-
-;; (defn versioned-lib [lib rev]
-;;   (if (or (nil? rev) (= :head rev))
-;;     lib
-;;     ))
-
-;; (defn- versioned-require [[lib & {:as opts}]]
-;;   (load (root-resource (versioned-lib lib (:rev opts)))))
-
-;; (defn- ns-clause [clauses])
-
-;; (defmacro ns- [name & clauses]
-;;   `(ns ~name
-;;      ~@(map ns-clause clauses)))
-
 (ns meta.verse
   (:refer-clojure :exclude [load require ns])
   (:require [clojure.java.io :as io]
@@ -27,8 +11,11 @@
 
 (defonce ccl (.getContextClassLoader (Thread/currentThread)))
 
+(defn qualify [lib checksum]
+  (symbol (str lib "." checksum)))
+
 (defn transform [ns-form checksum]
-  (let [transformed-ns (symbol (str (second ns-form) "." checksum))]
+  (let [transformed-ns (qualify (second ns-form) checksum)]
     `(ns ~transformed-ns ~@(drop 2 ns-form))))
 
 (defn read-all [resource]
@@ -51,7 +38,26 @@
       (doseq [form transformed]
         (eval form)))))
 
+;; for debugging
 (defn pprint [lib]
   (doseq [transformed (transformed-sources lib)]
     (pp/pprint transformed)))
 
+(defn require [[lib & {:as opts}]]
+  (let [qualified-lib (qualify lib (:rev opts))]
+    (load (str (#'clojure.core/root-resource lib) ".clj"))
+    (when-let [as (:as opts)]
+      (alias as qualified-lib))
+    (dosync
+     (commute @#'clojure.core/*loaded-libs* conj qualified-lib))
+    qualified-lib))
+
+;; (defn- ns-clause [[clause-type & args]]
+;;   (if (= :require clause-type)
+    
+;;     (cons clause-type args)))
+
+;; (defmacro ns [name & clauses]
+;;   `(do (ns ~name
+;;          ~@(map ns-clause clauses))
+;;        ~@(versioned-requires )))
