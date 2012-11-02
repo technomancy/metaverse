@@ -16,7 +16,7 @@
 
 (defn transform [ns-form checksum]
   (let [transformed-ns (qualify (second ns-form) checksum)]
-    `(ns ~transformed-ns ~@(drop 2 ns-form))))
+    `(clojure.core/ns ~transformed-ns ~@(drop 2 ns-form))))
 
 (defn read-all [resource]
   (let [reader (LineNumberingPushbackReader. (io/reader resource))
@@ -27,8 +27,11 @@
 (defn transformed-sources [lib]
   (let [matches (enumeration-seq (.findResources ccl lib))]
     (for [match matches
-            :let [checksum (sha1 (.getBytes (slurp match)))
-                  [ns-form & body] (read-all match) ]]
+          :let [checksum (sha1 (.getBytes (slurp match)))
+                ;; TODO: the body must be *read* in the ns of the
+                ;; first element
+                [ns-form & body] (binding [*ns* (the-ns 'user)]
+                                   (read-all match))]]
       (cons (transform ns-form checksum) body))))
 
 (defn load [lib]
@@ -43,21 +46,33 @@
   (doseq [transformed (transformed-sources lib)]
     (pp/pprint transformed)))
 
-(defn require [[lib & {:as opts}]]
-  (let [qualified-lib (qualify lib (:rev opts))]
-    (load (str (#'clojure.core/root-resource lib) ".clj"))
-    (when-let [as (:as opts)]
-      (alias as qualified-lib))
-    (dosync
-     (commute @#'clojure.core/*loaded-libs* conj qualified-lib))
-    qualified-lib))
+(defn require [[lib & {:as opts} :as orig-args]]
+  (if-let [rev (:rev opts)]
+    (let [qualified-lib (qualify lib rev)]
+      ;; TODO: check *loaded-libs*, don't reload unless necessary
+      (load (str (subs (#'clojure.core/root-resource lib) 1) ".clj"))
+      (when-let [as (:as opts)]
+        (ns-unalias *ns* as)
+        (alias as qualified-lib))
+      ;; TODO: we might need two concepts of "loaded" for this
+      (dosync
+       (commute @#'clojure.core/*loaded-libs* conj qualified-lib))
+      qualified-lib)
+    (clojure.core/require orig-args)))
 
-;; (defn- ns-clause [[clause-type & args]]
-;;   (if (= :require clause-type)
+(defn- ns-clause [[clause-type & args]]
+  (if (= :require clause-type)
     
-;;     (cons clause-type args)))
+    (cons clause-type args)))
 
-;; (defmacro ns [name & clauses]
-;;   `(do (ns ~name
-;;          ~@(map ns-clause clauses))
-;;        ~@(versioned-requires )))
+(defn- require? [[clause-type & _]]
+  (= clause-type :require))
+
+(defn- versioned-require [[_ & subclauses]]
+  (for [subclause subclauses]
+    `(require '~subclause)))
+
+(defmacro ns- [name & clauses]
+  (let [[requires others] ((juxt filter remove) require? clauses)]
+    `(do (clojure.core/ns ~name ~@others)
+         ~@(mapcat versioned-require requires))))
