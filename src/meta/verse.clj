@@ -12,6 +12,7 @@
 (defonce ccl (.getContextClassLoader (Thread/currentThread)))
 
 (defn qualify [lib checksum]
+  ;; TODO: different separator
   (symbol (str lib "." checksum)))
 
 (defn transform [ns-form checksum]

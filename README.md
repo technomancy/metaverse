@@ -1,6 +1,6 @@
-# metaverse
+# Metaverse
 
-A Clojure library designed to ... well, that part is up to you.
+Parallel universes ... for namespaces
 
 ## Usage
 
@@ -8,6 +8,6 @@ FIXME
 
 ## License
 
-Copyright © 2012 FIXME
+Copyright © 2012 Seattle Clojure Group
 
 Distributed under the Eclipse Public License, the same as Clojure.
