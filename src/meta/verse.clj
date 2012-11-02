@@ -15,7 +15,7 @@
 ;;      ~@(map ns-clause clauses)))
 
 (ns meta.verse
-  (:refer-clojure :exclude [load require])
+  (:refer-clojure :exclude [load require ns])
   (:require [clojure.java.io :as io]
             [clojure.pprint :as pp])
   (:import (java.security MessageDigest)
@@ -34,6 +34,7 @@
 (defn read-all [resource]
   (let [reader (LineNumberingPushbackReader. (io/reader resource))
         forms (repeatedly #(read reader false ::eof))]
+    ;; TODO: add :file metadata
     (take-while #(not= ::eof %) forms)))
 
 (defn transformed-sources [lib]

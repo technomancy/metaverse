@@ -1,7 +1,7 @@
 (ns metaverse.core-test
-  (:use clojure.test
-        metaverse.core))
+  (:require [metaverse.loader :as l]
+            ;; [metaverse.requirer :as r]
+            [clojure.test :refer :all]))
 
-(deftest a-test
-  (testing "FIXME, I fail."
-    (is (= 0 1))))
+(deftest loader-test
+  (is (= [:original :alternate] (l/get-abcs))))
